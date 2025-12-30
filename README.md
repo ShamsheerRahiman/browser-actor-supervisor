@@ -56,7 +56,8 @@ python -m src.crawler.main 10
 python -m src.crawler.main 100 my_urls.txt
 
 # Generate stats from results
-python -m src.crawler.stats crawl_results.json
+# Generate detailed stats and plots
+python stats/generate_stats.py
 ```
 
 ## Configuration
@@ -78,6 +79,11 @@ Edit `CrawlerConfig` in [src/crawler/main.py](src/crawler/main.py):
   - `rendered_html_bytes`: Bytes after full page load
   - `elapsed_sec`: Time taken
 
+- `stats/`: Directory containing:
+  - `generate_stats.py`: Script to generate stats
+  - `ANALYSIS.md`: Generated report
+  - `*.png`: CDF plots and graphs
+
 ## Type Checking
 
 ```bash
@@ -94,6 +100,5 @@ src/crawler/
 ├── browser.py      # Browser management & crawling
 ├── scheduler.py    # Domain-based URL scheduling
 ├── monitor.py      # CPU/memory monitoring
-├── types.py        # Data types & config
-└── stats.py        # Stats & CDF analysis
+└── types.py        # Data types & config
 ```
