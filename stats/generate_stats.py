@@ -9,9 +9,12 @@ plt.style.use('seaborn-v0_8-darkgrid')
 STATS_DIR = Path(__file__).parent
 RESULTS_FILE = STATS_DIR.parent / "crawl_results.json"
 
-def load_results(path: Path) -> list[dict]:
-    """Load results from JSON file."""
-    return json.loads(path.read_text())
+def load_results(path: Path) -> tuple[list[dict], dict]:
+    """Load results from JSON file. Returns (results, metadata)."""
+    data = json.loads(path.read_text())
+    if isinstance(data, dict) and "results" in data:
+        return data["results"], data.get("metadata", {})
+    return data, {}
 
 def compute_cdf(values: list) -> tuple[np.ndarray, np.ndarray]:
     """Compute CDF from values."""
@@ -81,18 +84,21 @@ def plot_comparison_cdf(init_bytes: list, rend_bytes: list, output_path: Path) -
 
 
 
-def generate_analysis(results: list, by_status: dict, init_bytes: list, rend_bytes: list, times: list) -> str:
+def generate_analysis(results: list, by_status: dict, init_bytes: list, rend_bytes: list, times: list, metadata: dict) -> str:
     """Generate analysis markdown."""
     n = len(results)
     success_rate = by_status.get('SUCCESS', 0) / n * 100
     valid_pairs = [(r['initial_html_bytes'], r['rendered_html_bytes']) for r in results if r['initial_html_bytes'] > 0 and r['rendered_html_bytes'] > 0]
     ratio = np.array([r[1] / r[0] for r in valid_pairs])
+    wall_clock = metadata.get("wall_clock_sec", 0)
+    wall_clock_str = f"{wall_clock:.1f}s ({wall_clock/60:.1f} min)" if wall_clock > 0 else "N/A"
     analysis = f"""# Crawl Statistics Report
 
 ## Summary
 - **Total URLs crawled**: {n:,}
 - **Success rate**: {success_rate:.1f}%
 - **Failed/Timeout**: {by_status.get('FAILED', 0) + by_status.get('TIMEOUT', 0):,} ({100-success_rate:.1f}%)
+- **Wall-clock runtime**: {wall_clock_str}
 
 ## HTML Size Statistics
 
@@ -129,11 +135,13 @@ def generate_analysis(results: list, by_status: dict, init_bytes: list, rend_byt
 ## Timing Statistics
 | Metric | Value |
 |--------|-------|
-| Total elapsed | {sum(times):.1f}s ({sum(times)/3600:.2f} hours) |
+| Cumulative time (all URLs) | {sum(times):.1f}s ({sum(times)/3600:.2f} hours) |
 | Avg per URL | {np.mean(times):.1f}s |
-| Median | {np.median(times):.1f}s |
+| Median per URL | {np.median(times):.1f}s |
 | Min | {min(times):.1f}s |
 | Max | {max(times):.1f}s |
+
+> **Note**: "Cumulative time" is the sum of individual page load times. Due to cross-domain concurrency, the actual wall-clock runtime is significantly shorter.
 
 ## CDF Plots
 
@@ -154,8 +162,10 @@ def main() -> None:
     if not path.exists():
         print(f"File not found: {path}")
         sys.exit(1)
-    results = load_results(path)
+    results, metadata = load_results(path)
     print(f"Loaded {len(results)} results from {path}")
+    if metadata:
+        print(f"Metadata: wall_clock={metadata.get('wall_clock_sec', 'N/A')}s")
     by_status: dict[str, int] = {}
     for r in results:
         by_status[r["status"]] = by_status.get(r["status"], 0) + 1
@@ -169,7 +179,7 @@ def main() -> None:
     plot_cdf_log(rend_bytes, "CDF: Rendered HTML Size (Log Scale)", "HTML Size", STATS_DIR / "rendered_html_cdf_log.png", "#E94F37")
     plot_comparison_cdf(init_bytes, rend_bytes, STATS_DIR / "comparison_cdf.png")
 
-    analysis = generate_analysis(results, by_status, init_bytes, rend_bytes, times)
+    analysis = generate_analysis(results, by_status, init_bytes, rend_bytes, times, metadata)
     (STATS_DIR / "ANALYSIS.md").write_text(analysis)
     print(f"Saved: {STATS_DIR / 'ANALYSIS.md'}")
     print("\nDone! All stats and plots generated.")

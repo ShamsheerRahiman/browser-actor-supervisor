@@ -1,104 +1,121 @@
 # Browser Actor Supervisor
 
-MVP web crawler that drives Playwright browsers to visit a list of URLs using Python 3.14, asyncio, and a lightweight actor runtime.
+A robust, concurrent web crawler designed to drive Playwright browsers with supervisor-like resilience. It employs an actor model to orchestrate domain-polite crawling while adapting to system resource availability.
 
-## Features
+## System Architecture
 
-- **Per-domain delay**: 1-minute delay between requests to same domain.
-- **Cross-domain concurrency**: Maximally concurrent across different domains.
-- **Resource monitoring**: Monitors CPU/memory to throttle tab launches.
-- **Browser supervision**: Automatically restarts browsers on failure.
-- **HTML byte capture**: Saves initial HTML (before JS) and rendered HTML (after JS).
+Instead of naive concurrency, this system acts as a supervisor:
 
-## Requirements
+1.  **Actor-Based Orchestration**: A central `CrawlerActor` manages the lifecycle of the crawl, ensuring clean shutdowns and error isolation.
+2.  **Domain-Polite Scheduling**:
+    -   The **Scheduler** maintains separate queues for each domain.
+    -   Enforces a strict **1-minute cooldown** between requests to the *same* domain to avoid being blocked.
+    -   Maximizes concurrency by aggressively fetching URLs from *different* domains in parallel.
+3.  **Resilient Browser Management**:
+    -   Browsers are treated as cattle, not pets.
+    -   The **Browser Manager** isolates every single page visit in a fresh context (no cookie/cache leakage).
+    -   Automatically detects crashes or freezes and **restarts** the entire browser process after 3 consecutive failures.
+4.  **Adaptive Resource Monitoring**:
+    -   The **Monitor** checks real-time CPU and RAM usage before launching every new tab.
+    -   Throttles concurrency dynamically if CPU > 80% or RAM > 80% to prevent system lockups.
 
-- Python 3.14+
-- uv package manager (preferred) or venv/pip
-- Playwright (Chromium installed via `playwright install chromium`)
+## Setup
 
-## Setup (uv)
+### Using uv (Recommended)
+
+This project uses modern Python 3.14 features.
 
 ```bash
+# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and sync dependencies
 uv venv --python 3.14 .venv
-source .venv/bin/activate  # Linux/macOS
-.venv\Scripts\activate     # Windows
+source .venv/bin/activate      # Linux/macOS
+.venv\Scripts\activate         # Windows
 uv pip install -r pyproject.toml
 playwright install chromium
 ```
 
-## Setup (pip/venv)
+### Using pip
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-.venv\Scripts\activate     # Windows
-
-pip install -r <(python - <<'PY'
-import tomllib
-deps=tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']
-print('\n'.join(deps))
-PY
-)
+source .venv/bin/activate      # Linux/macOS
+.venv\Scripts\activate         # Windows
+pip install -r pyproject.toml
 playwright install chromium
 ```
 
 ## Usage
 
+### Run the Crawler
+
+The crawler accepts an optional number of URLs to visit (default 5) and a custom file path.
+
 ```bash
-# Run with 5 URLs (default)
+# Default (crawls 5 URLs from 2kurls.txt)
 python -m src.crawler.main
 
-# Run with custom count
-python -m src.crawler.main 10
+# Crawl 50 URLs
+python -m src.crawler.main 50
 
-# Run with custom URL file
+# Crawl 100 URLs from a custom file
 python -m src.crawler.main 100 my_urls.txt
+```
 
-# Generate stats from results
-# Generate detailed stats and plots
+### Generate Statistics
+
+After a crawl, generate comprehensive CDF analyses and graphs:
+
+```bash
 python stats/generate_stats.py
 ```
 
+This commands reads `crawl_results.json` and populates the `stats/` folder.
+
 ## Configuration
 
-Edit `CrawlerConfig` in [src/crawler/main.py](src/crawler/main.py):
+Configuration is defined in `CrawlerConfig` (`src/crawler/types.py`). You can modify defaults there:
 
-- `domain_delay_sec`: Delay between same-domain requests (default: 60s)
-- `page_timeout_sec`: Page load timeout (default: 60s)
-- `cpu_threshold`: Max CPU% before throttling (default: 80%)
-- `mem_threshold`: Max memory% before throttling (default: 85%)
-- `min_mem_avail_mb`: Minimum free memory to allow new tabs (default: 512 MB)
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `domain_delay_sec` | 60.0s | Mandatory wait time between requests to the same domain. |
+| `page_timeout_sec` | 60.0s | Hard timeout for page load and rendering. |
+| `cpu_threshold` | 80.0% | Pause new tabs if system CPU usage exceeds this. |
+| `mem_threshold` | 80.0% | Pause new tabs if system RAM usage exceeds this. |
+| `min_mem_avail_mb` | 512MB | Minimum free RAM required to launch a tab. |
 
 ## Output
 
-- `crawl_results.json`: JSON array of crawl results with:
-  - `url`: Crawled URL
-  - `status`: SUCCESS, TIMEOUT, or FAILED
-  - `initial_html_bytes`: Bytes before JS rendering
-  - `rendered_html_bytes`: Bytes after full page load
-  - `elapsed_sec`: Time taken
+### Data (`crawl_results.json`)
+A JSON array containing the raw data for every visited URL:
+-   `url`: The target URL.
+-   `status`: `SUCCESS`, `TIMEOUT`, or `FAILED`.
+-   `initial_html_bytes`: Size of the raw HTTP response body (before JS).
+-   `rendered_html_bytes`: Size of the DOM after JS execution (full page load).
+-   `elapsed_sec`: Total time taken for the attempt.
 
-- `stats/`: Directory containing:
-  - `generate_stats.py`: Script to generate stats
-  - `ANALYSIS.md`: Generated report
-  - `*.png`: CDF plots and graphs
-
-## Type Checking
-
-```bash
-basedpyright src/
-```
+### Analysis (`stats/`)
+-   `ANALYSIS.md`: A summary report of the crawl metrics.
+-   `*_cdf.png`: Visual Cumulative Distribution Function (CDF) plots showing the distribution of data sizes across the dataset.
 
 ## Project Structure
 
 ```
 src/crawler/
-├── __init__.py     # Package init
-├── actor.py        # Lightweight actor runtime
-├── main.py         # Entry point (orchestrator runs via actor)
-├── browser.py      # Browser management & crawling
-├── scheduler.py    # Domain-based URL scheduling
-├── monitor.py      # CPU/memory monitoring
-└── types.py        # Data types & config
+├── actor.py        # Lightweight actor framework (supervisor pattern)
+├── main.py         # Entry point & orchestration logic
+├── browser.py      # Resilient browser lifecycle & efficient context management
+├── scheduler.py    # Domain-aware prioritization queue
+├── monitor.py      # System resource watcher
+└── types.py        # Configuration classes & type definitions
+
+stats/
+├── generate_stats.py # Analysis & plotting script
+└── ...               # Generated reports and graphs
 ```
+
+---
+
+*Disclaimer: This project code and documentation were generated with the assistance of AI.*

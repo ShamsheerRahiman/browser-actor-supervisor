@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import sys
+import time
 from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -30,19 +31,25 @@ def load_urls(path: Path, limit: int | None = None) -> list[str]:
     log.info(f"Loaded {len(urls)} URLs from {path}")
     return urls
 
-def save_results(results: list[CrawlResult], path: Path) -> None:
-    """Save results to JSON."""
-    data = [
-        {
-            "url": r.url,
-            "status": r.status.name,
-            "initial_html_bytes": r.initial_html_bytes,
-            "rendered_html_bytes": r.rendered_html_bytes,
-            "error": r.error,
-            "elapsed_sec": round(r.elapsed_sec, 2),
-        }
-        for r in results
-    ]
+def save_results(results: list[CrawlResult], path: Path, wall_clock_sec: float = 0.0) -> None:
+    """Save results to JSON with metadata."""
+    data = {
+        "metadata": {
+            "wall_clock_sec": round(wall_clock_sec, 2),
+            "n_urls": len(results),
+        },
+        "results": [
+            {
+                "url": r.url,
+                "status": r.status.name,
+                "initial_html_bytes": r.initial_html_bytes,
+                "rendered_html_bytes": r.rendered_html_bytes,
+                "error": r.error,
+                "elapsed_sec": round(r.elapsed_sec, 2),
+            }
+            for r in results
+        ],
+    }
     path.write_text(json.dumps(data, indent=2))
     log.info(f"Saved {len(results)} results to {path}")
 
@@ -153,9 +160,11 @@ async def main() -> None:
     urls = load_urls(url_file, limit=n_urls)
     actor = CrawlerActor(cfg)
     actor_ref = actor.spawn()
+    t0 = time.time()
     results = await actor_ref.call(RunRequest(urls))
+    wall_clock = time.time() - t0
     actor_ref.cancel()
-    save_results(results, Path("crawl_results.json"))
+    save_results(results, Path("crawl_results.json"), wall_clock)
     print_stats(results)
 
 if __name__ == "__main__":

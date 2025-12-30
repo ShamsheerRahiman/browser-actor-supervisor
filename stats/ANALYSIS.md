@@ -4,6 +4,7 @@
 - **Total URLs crawled**: 2,000
 - **Success rate**: 85.1%
 - **Failed/Timeout**: 298 (14.9%)
+- **Wall-clock runtime**: N/A
 
 ## HTML Size Statistics
 
@@ -40,11 +41,13 @@
 ## Timing Statistics
 | Metric | Value |
 |--------|-------|
-| Total elapsed | 148990.5s (41.39 hours) |
+| Cumulative time (all URLs) | 148990.5s (41.39 hours) |
 | Avg per URL | 74.5s |
-| Median | 66.6s |
+| Median per URL | 66.6s |
 | Min | 2.6s |
 | Max | 251.2s |
+
+> **Note**: "Cumulative time" is the sum of individual page load times. Due to cross-domain concurrency, the actual wall-clock runtime is significantly shorter.
 
 ## CDF Plots
 
