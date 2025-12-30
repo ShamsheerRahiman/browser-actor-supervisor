@@ -1,6 +1,6 @@
 # Browser Actor Supervisor
 
-A robust, concurrent web crawler designed to drive Playwright browsers with supervisor-like resilience. It employs an actor model to orchestrate domain-polite crawling while adapting to system resource availability.
+A concurrent web crawler designed to drive Playwright browsers with supervisor-like resilience. It employs an actor model to orchestrate domain-polite crawling while adapting to system resource availability.
 
 ## System Architecture
 
@@ -115,6 +115,16 @@ stats/
 ├── generate_stats.py # Analysis & plotting script
 └── ...               # Generated reports and graphs
 ```
+
+## Tested Environment
+
+| Component | Specification |
+|-----------|---------------|
+| OS | Windows 11 with WSL (Ubuntu) |
+| CPU | AMD Ryzen AI 9 HX 370 |
+| RAM | 32 GB |
+
+Some test runs were conducted with intentionally low CPU/memory thresholds to verify scaling and concurrency behavior under resource-constrained conditions.
 
 ---
 
