@@ -59,3 +59,21 @@
 
 ### Comparison CDF (Initial vs Rendered)
 ![Comparison CDF](comparison_cdf.png)
+
+## Brief Analysis
+
+### The "Rendering Tax"
+The CDF comparison illustrates the "Rendering Tax" imposed by modern client-side execution. While the **Median HTML size** grows from **123.4 KB** to **165.4 KB** (a ~34% increase), the **Mean expansion ratio (38.00x)** and **Max expansion (19,083x)** reveal a "heavy tail" of highly dynamic sites. These outliers likely represent Single Page Applications (SPAs) or heavily obfuscated sites that deliver almost no content in the initial static shell, relying entirely on post-load JS execution to populate the DOM.
+
+### Distribution Characteristics
+* **Initial vs. Rendered Shift**: The rendered CDF (orange) is consistently shifted to the right of the initial CDF (blue) across the distribution, representing the significant hidden complexity missed by static scrapers.
+* **Convergence at High Volumes**: Both distributions converge near the **p99 mark (~1.9 MB)**. This suggests a practical upper bound for DOM size in typical web content, where the relative impact of JS-driven expansion diminishes for already massive static pages.
+
+### System Throughput & Efficiency
+The crawler demonstrated significant efficiency by compressing a massive amount of computational work into a short window:
+* **Total Service Time (Cumulative)**: The system managed **42.09 hours** of aggregate processing time across the 2,000 URLs.
+* **Wall-Clock Runtime (Actual)**: Due to high cross-domain concurrency, the entire task was completed in only **36.6 minutes**.
+* **Throughput Speedup**: This represents a **~69x speedup factor**, proving the effectiveness of the actor-based concurrency model in maximizing resource utilization while strictly adhering to the 1-minute domain-specific politeness delay.
+
+### Operational Stability
+The "Destroy and Restart" logic was used to manage stability during the high-concurrency crawl. CPU and memory monitoring prevented resource exhaustion during the **14.5% failure/timeout rate**. The **75.8s average per URL** includes the 1-minute render timeout, which limited the impact of high-latency dynamic sites on global queue progression.
