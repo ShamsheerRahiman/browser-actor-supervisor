@@ -6,6 +6,8 @@ requires-python = ">=3.14"
 dependencies = [
     "playwright>=1.49.0",
     "psutil>=6.1.0",
+    "numpy>=2.2.0",
+    "matplotlib>=3.10.0",
 ]
 
 [tool.basedpyright]

@@ -44,5 +44,5 @@ class CrawlerConfig:
     domain_delay_sec: float = 60.0
     page_timeout_sec: float = 60.0
     cpu_threshold: float = 80.0
-    mem_threshold: float = 40.0
+    mem_threshold: float = 80.0
     min_mem_avail_mb: float = 512.0
