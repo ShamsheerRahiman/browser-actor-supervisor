@@ -1,7 +1,6 @@
 .venv/
 __pycache__/
 *.pyc
-crawl_results.json
 *.egg-info/
 dist/
 build/
